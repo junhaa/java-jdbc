@@ -42,10 +42,7 @@ public class JdbcTemplate {
     }
 
     public <T> T selectOne(String sql, ResultMapper<T> resultMapper, PreparedStatementSetter pstmtSetter) {
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql);
-             ResultSet rs = executeQuery(pstmtSetter, pstmt)) {
-
+        return execute(sql, pstmtSetter, rs -> {
             if (!rs.next()) {
                 throw new DataAccessException("Expected 1 result, but found 0");
             }
@@ -57,10 +54,7 @@ public class JdbcTemplate {
             }
 
             return result;
-        } catch (SQLException e) {
-            log.error(e.getMessage(), e);
-            throw new DataAccessException(e);
-        }
+        });
     }
 
     public <T> List<T> selectList(String sql, ResultMapper<T> resultMapper, Object... args) {
@@ -68,10 +62,7 @@ public class JdbcTemplate {
     }
 
     public <T> List<T> selectList(String sql, ResultMapper<T> resultMapper, PreparedStatementSetter pstmtSetter) {
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql);
-             ResultSet rs = executeQuery(pstmtSetter, pstmt)
-        ) {
+        return execute(sql, pstmtSetter, rs -> {
             List<T> results = new ArrayList<>();
 
             while (rs.next()) {
@@ -79,15 +70,31 @@ public class JdbcTemplate {
             }
 
             return results;
+        });
+    }
+
+    private <T> T execute(String sql, PreparedStatementSetter pstmtSetter, ResultSetHandler<T> handler) {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            return executeQuery(pstmtSetter, pstmt, handler);
         } catch (SQLException e) {
             log.error(e.getMessage(), e);
             throw new DataAccessException(e);
         }
     }
 
-    private ResultSet executeQuery(PreparedStatementSetter pstmtSetter, PreparedStatement pstmt) throws SQLException {
+    private <T> T executeQuery(PreparedStatementSetter pstmtSetter, PreparedStatement pstmt,
+                               ResultSetHandler<T> handler) throws SQLException {
         pstmtSetter.setValues(pstmt);
-        return pstmt.executeQuery();
+        try (ResultSet rs = pstmt.executeQuery()) {
+            return handler.handle(rs);
+        }
+    }
+
+    @FunctionalInterface
+    private interface ResultSetHandler<T> {
+        T handle(ResultSet rs) throws SQLException;
     }
 }
 
