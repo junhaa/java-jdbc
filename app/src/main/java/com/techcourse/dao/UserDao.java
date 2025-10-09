@@ -3,6 +3,7 @@ package com.techcourse.dao;
 import com.interface21.jdbc.core.JdbcTemplate;
 import com.interface21.jdbc.core.ResultMapper;
 import com.techcourse.domain.User;
+import java.sql.Connection;
 import java.util.List;
 
 public class UserDao {
@@ -31,6 +32,17 @@ public class UserDao {
 
     public void update(final User user) {
         jdbcTemplate.update(
+                "update users set account = ?, password = ?, email = ? where id = ?",
+                user.getAccount(),
+                user.getPassword(),
+                user.getEmail(),
+                user.getId()
+        );
+    }
+
+    public void update(Connection conn, final User user) {
+        jdbcTemplate.update(
+                conn,
                 "update users set account = ?, password = ?, email = ? where id = ?",
                 user.getAccount(),
                 user.getPassword(),
